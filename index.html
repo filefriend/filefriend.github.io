@@ -2,14 +2,12 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>Datei Upload mit GoFile.io</title>
+  <title>Datei Upload mit GoFile</title>
 </head>
 <body>
   <h2>Datei hochladen (GoFile.io)</h2>
-
   <input type="file" id="fileInput">
   <button onclick="upload()">Hochladen</button>
-
   <p id="output"></p>
 
   <script>
@@ -17,16 +15,23 @@
       const file = document.getElementById("fileInput").files[0];
       if (!file) return alert("Bitte Datei auswählen.");
 
-      document.getElementById("output").innerText = "Hochladevorgang läuft...";
+      document.getElementById("output").innerText = "Server wird gesucht...";
 
       const formData = new FormData();
       formData.append("file", file);
 
       try {
-        // Erst: besten Server holen
+        // Server holen
         const serverRes = await fetch("https://api.gofile.io/getServer");
         const serverData = await serverRes.json();
+
+        if (serverData.status !== "ok") {
+          document.getElementById("output").innerText = "Fehler beim Holen des Servers.";
+          return;
+        }
+
         const server = serverData.data.server;
+        document.getElementById("output").innerText = "Hochladen läuft...";
 
         // Datei hochladen
         const uploadRes = await fetch(`https://${server}.gofile.io/uploadFile`, {
@@ -34,20 +39,25 @@
           body: formData
         });
 
-        const result = await uploadRes.json();
+        const resultText = await uploadRes.text();
+        try {
+          const result = JSON.parse(resultText);
 
-        if (result.status === "ok") {
-          const link = result.data.downloadPage;
-          document.getElementById("output").innerHTML = `
-            <strong>Download-Link:</strong><br>
-            <a href="${link}" target="_blank">${link}</a>
-          `;
-        } else {
-          document.getElementById("output").innerText = "Upload fehlgeschlagen.";
-          console.error(result);
+          if (result.status === "ok") {
+            const link = result.data.downloadPage;
+            document.getElementById("output").innerHTML =
+              `<strong>Download-Link:</strong><br><a href="${link}" target="_blank">${link}</a>`;
+          } else {
+            document.getElementById("output").innerText = "Upload fehlgeschlagen.";
+            console.error(result);
+          }
+        } catch (parseError) {
+          document.getElementById("output").innerText = "Fehler: Keine gültige Antwort vom Server.";
+          console.error("Antwort war kein JSON:", resultText);
         }
+
       } catch (error) {
-        document.getElementById("output").innerText = "Fehler: " + error;
+        document.getElementById("output").innerText = "Fehler: " + error.message;
         console.error(error);
       }
     }
