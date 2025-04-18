@@ -2,44 +2,52 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>Datei Upload (ohne API-Key)</title>
+  <title>Datei Upload mit GoFile.io</title>
 </head>
 <body>
-  <h2>Datei hochladen (Uguu.se)</h2>
+  <h2>Datei hochladen (GoFile.io)</h2>
 
   <input type="file" id="fileInput">
-  <button onclick="uploadFile()">Hochladen</button>
+  <button onclick="upload()">Hochladen</button>
 
   <p id="output"></p>
 
   <script>
-    async function uploadFile() {
-      const fileInput = document.getElementById("fileInput");
-      const file = fileInput.files[0];
+    async function upload() {
+      const file = document.getElementById("fileInput").files[0];
+      if (!file) return alert("Bitte Datei auswählen.");
 
-      if (!file) {
-        alert("Bitte wähle eine Datei aus.");
-        return;
-      }
+      document.getElementById("output").innerText = "Hochladevorgang läuft...";
 
       const formData = new FormData();
       formData.append("file", file);
 
       try {
-        const response = await fetch("https://uguu.se/upload.php", {
+        // Erst: besten Server holen
+        const serverRes = await fetch("https://api.gofile.io/getServer");
+        const serverData = await serverRes.json();
+        const server = serverData.data.server;
+
+        // Datei hochladen
+        const uploadRes = await fetch(`https://${server}.gofile.io/uploadFile`, {
           method: "POST",
           body: formData
         });
 
-        const result = await response.json();
-        const link = result.files[0].url;
+        const result = await uploadRes.json();
 
-        document.getElementById("output").innerHTML = `
-          <strong>Download-Link:</strong><br>
-          <a href="${link}" target="_blank">${link}</a>
-        `;
+        if (result.status === "ok") {
+          const link = result.data.downloadPage;
+          document.getElementById("output").innerHTML = `
+            <strong>Download-Link:</strong><br>
+            <a href="${link}" target="_blank">${link}</a>
+          `;
+        } else {
+          document.getElementById("output").innerText = "Upload fehlgeschlagen.";
+          console.error(result);
+        }
       } catch (error) {
-        document.getElementById("output").innerText = "Fehler beim Hochladen: " + error;
+        document.getElementById("output").innerText = "Fehler: " + error;
         console.error(error);
       }
     }
